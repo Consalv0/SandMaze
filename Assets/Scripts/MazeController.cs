@@ -80,19 +80,32 @@ public class MazeController : MonoBehaviour {
 	}
 
 	IEnumerator RecursivePath(int row, int col) {
-		int[] movement = ChoosePath(ref row, ref col);
+		int[] movement = ChoosePath(row, col);
 		visitedWalls.Add(movement);
 		int[] nextMove = ChooseNextNeighbor();
-		yield return new WaitForSeconds(stepTime);
 		Instantiate(wallPrefabs.Last().Prefab, new Vector3(transform.position.x + movement[1], transform.position.y, transform.position.z + movement[0]), Quaternion.identity);
 		while (posibleNeighbors.Count() != 0) {
 			yield return new WaitForSeconds(stepTime);
 			Debug.Log(nextMove[0] + ", " + nextMove[1]);
-			movement = ChoosePath(ref nextMove[0], ref nextMove[1]);
+			movement = ChoosePath(nextMove[0], nextMove[1]);
+			if (movement.Length == 0) break;
 			visitedWalls.Add(movement);
 			nextMove = ChooseNextNeighbor();
 			Instantiate(wallPrefabs.Last().Prefab, new Vector3(transform.position.x + movement[1], transform.position.y, transform.position.z + movement[0]), Quaternion.identity);
+
+			foreach (GameObject obj in instantiaed) {
+				Destroy(obj.gameObject);
+			}
+			instantiaed.Clear();
+			foreach(int[] nei in posibleNeighbors) {
+				GameObject neighbor = Instantiate(wallPrefabs.First().Prefab, new Vector3(transform.position.x + nei[1], transform.position.y + 0.5f, transform.position.z + nei[0]), Quaternion.identity);
+				instantiaed.Add(neighbor);
+			}
 		}
+		foreach (GameObject obj in instantiaed) {
+			Destroy(obj.gameObject);
+		}
+
 		Debug.Log(visitedWalls.Count);
 		yield return new WaitForSeconds(stepTime);
 	}
@@ -145,12 +158,10 @@ public class MazeController : MonoBehaviour {
 				nextNeighbor = posibleNeighbors[i];
 				break;
 		}
-		i = posibleNeighbors.FindIndex(l => l.SequenceEqual(nextNeighbor));
-		posibleNeighbors.RemoveAt(i);
 		return nextNeighbor;
 	}
 
-	public int[] ChoosePath(ref int row, ref int col) {
+	public int[] ChoosePath(int row, int col) {
 		List<int[]> neighbors = new List<int[]>();
 
 		if (row + 2 > 0 && row + 2 < mazeSize[0]) // up
@@ -168,27 +179,20 @@ public class MazeController : MonoBehaviour {
 
 		if (neighbors.Count != 0) {
 			int[] move = neighbors[Random.Range(0, neighbors.Count)];
-			int i = neighbors.FindIndex(l => l.SequenceEqual(move));
-			neighbors.RemoveAt(i);
-			if (neighbors.Count != 0)
-				posibleNeighbors.AddRange(neighbors);
+			posibleNeighbors.Add(move);
 
-			int[] moveDir = { row - move[0], col - move[1]};
+			int[] moveDir = { row - move[0], col - move[1] };
+			Debug.Log("Dir: " + moveDir[0] + ", " + moveDir[1]);
  			Instantiate(wallPrefabs.Last().Prefab, new Vector3(transform.position.x - moveDir[1] * 0.5f + col, transform.position.y,
 																												 transform.position.z - moveDir[0] * 0.5f + row), Quaternion.identity);
-			foreach (GameObject obj in instantiaed) {
-				Destroy(obj.gameObject);
-			}
-			instantiaed.Clear();
-			foreach(int[] nei in posibleNeighbors) {
-				GameObject neighbor = Instantiate(wallPrefabs.First().Prefab, new Vector3(transform.position.x + nei[1], transform.position.y, transform.position.z + nei[0]), Quaternion.identity);
-				instantiaed.Add(neighbor);
-			}
-
 			return move;
 		}
-
-		return ChooseNextNeighbor();
+		int j = posibleNeighbors.FindIndex(l => l.SequenceEqual(new int[]{row, col}));
+		posibleNeighbors.RemoveAt(j);
+		if (posibleNeighbors.Count() != 0) {
+			return ChooseNextNeighbor();
+		}
+		return new int[0];
 	}
 
 	static bool IsInList(List<int[]> list, int[] arr) {
