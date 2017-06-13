@@ -16,8 +16,6 @@ public class MazeManager : MonoBehaviour {
 	public float timer;
 
 	[Range(0, 1)]
-	public float trapComplexity = 0.75f;
-	[Range(0, 1)]
 	public float trapDensity = 0.75f;
 
 	// public bool CreateMaze;
@@ -59,8 +57,7 @@ public class MazeManager : MonoBehaviour {
 		for (int i = 0; i < height; i++)
 			for (int j = 0; j < width; j++)
 				maze[i, j] = 1;
-
-		System.Random rand = new System.Random();
+		
 		// r for row、c for column
 		maze[initialPos[0], initialPos[1]] = 0;
 
@@ -142,8 +139,6 @@ public class MazeManager : MonoBehaviour {
 	public bool[,] TrapPositioning() {
 		// Only odd shapes
 		int[] shape = { (height / 2) * 2 + 1, (width / 2) * 2 + 1 };
-		// Adjust complexity and density relative to maze size
-		var complexity = trapComplexity * (5 * (shape[0] + shape[1]));
 		var density = trapDensity * (((shape[0 / 2])) * ((shape[1 / 2])));
 		// Build actual maze
 		bool[,] Z = new bool[shape[0], shape[1]];
