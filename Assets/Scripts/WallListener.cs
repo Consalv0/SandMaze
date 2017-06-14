@@ -25,6 +25,15 @@ public class WallListener : MonoBehaviour {
 	void Start() {
 		render = GetComponent<Renderer>();
 		coll = GetComponent<Collider>();
+
+		if (controller != null)
+		if (isActive) {
+			targetPosition = index.WorldPosition + Vector3.up * controller.wallSize.y * 0.4f;
+			transform.position = targetPosition;
+		} else {
+			targetPosition = index.WorldPosition + Vector3.down * controller.wallSize.y * 0.4f;
+			transform.position = targetPosition;
+		}
 	}
 
 	void Update() {
