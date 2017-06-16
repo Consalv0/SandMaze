@@ -22,7 +22,9 @@ public enum RecursionMethod {
 	OldAndRandom
 }
 
+[RequireComponent(typeof(BoxCollider))]
 public class MazeController : MonoBehaviour {
+	public bool isActive = true;
 	public RecursionMethod method;
 	public int[] mazeSize = new int[2];
 	public int[] startPos = new int[2];
@@ -30,62 +32,72 @@ public class MazeController : MonoBehaviour {
 
 	public Vector3 wallSize = Vector3.one;
 	public List<WallPrefab> wallPrefabs = new List<WallPrefab>();
+	public GameObject exitPrefab;
 
 	int[,] mazeData;
 	List<int[]> visitedWalls = new List<int[]>();
 	List<int[]> posibleNeighbors = new List<int[]>();
 	public float smoothVelocity;
-	public List<MazeWall> walls = new List<MazeWall>();
+	List<MazeWall> walls = new List<MazeWall>();
+	Dictionary<string, int> listPosition = new Dictionary<string, int>();
 
 	public float stepTime;
-	List<GameObject> debugInstatiate = new List<GameObject>();
+	// List<GameObject> debugInstatiate = new List<GameObject>();
 
 	void Start() {
-		//var mazeBorders = MakeBorders();
-		//for (int i = 0; i < mazeBorders.GetLength(0); i++) {
-		//	for (int j = 0; j < mazeBorders.GetLength(1); j++) {
-		//		if (mazeBorders[i, j] == 1)
-		//			Instantiate(wallPrefabs.Last().Prefab, new Vector3(transform.position.x + j, transform.position.y, transform.position.z + i), Quaternion.identity);
-		//	}
-		//}
 		int indx = 0;
 		for (int i = 0; i < mazeSize[0]; i++) {
 			for (int j = 0; j < mazeSize[1]; j++) {
 				var wall = new MazeWall {
 					Index = indx,
-					Prefab = Instantiate(GetRandomWall()),
+					Prefab = Instantiate(GetNewRandomWall(new int[]{i, j}.SequenceEqual(exitPos))),
 					MazePosition = new int[] { i, j },
 					WorldPosition = transform.position + new Vector3(wallSize.x * j, 0, wallSize.z * i)
 				};
+				listPosition.Add(i + ", " + j, indx);
 				indx++;
 				wall.Prefab.GetComponent<WallListener>().controller = this;
 				wall.Prefab.GetComponent<WallListener>().index = wall;
 				walls.Add(wall);
 			}
 		}
-		StartCoroutine(BeginMaze());
+	}
+
+	void OnTriggerEnter(Collider other) {
+		if (other.tag == "Player") {
+			isActive = true;
+			//foreach (MazeWall mWall in walls) {
+			//	mWall.Prefab.GetComponent<WallListener>().isHidden = false;
+			//}
+			StartCoroutine(BeginMaze());
+		}
+	}
+
+	void OnTriggerExit(Collider other) {
+		if (other.tag == "Player") {
+			isActive = false;
+			//foreach(MazeWall mWall in walls) {
+			//	mWall.Prefab.GetComponent<WallListener>().isHidden = true;
+			//}
+			StopAllCoroutines();
+		}
 	}
 
 	IEnumerator BeginMaze() {
-		yield return StartCoroutine(TreeMazeAlgorithm());
-		yield return new WaitForSeconds(5);
-	}
-
-	public int[,] MakeBorders() {
-		int[,] _maze = new int[mazeSize[0] + 1, mazeSize[1] + 1];
-		for (int col = 0; col < mazeSize[1] + 1; col++) {
-			_maze[0, col] = 1;
-			_maze[_maze.GetLength(0) - 1, col] = 1;
+		while (isActive) {
+			yield return StartCoroutine(TreeMazeAlgorithm());
+			Debug.LogWarning("Starting Over Maze: " + gameObject.GetInstanceID() + ". \n At: " + Time.realtimeSinceStartup);
 		}
-		for (int row = 0; row < mazeSize[0] + 1; row++) {
-			_maze[row, 0] = 1;
-			_maze[row, _maze.GetLength(1) - 1] = 1;
-		}
-		return _maze;
+		yield break;
 	}
 
 	IEnumerator TreeMazeAlgorithm() {
-		// Instantiate(wallPrefabs.Last().Prefab, new Vector3(transform.position.x + startPos[1], transform.position.y, transform.position.z + startPos[0]), Quaternion.identity);
+		//foreach (GameObject go in debugInstatiate) {
+		//	Destroy(go);
+		//}
+		// debugInstatiate.Clear();
+		visitedWalls.Clear();
+		posibleNeighbors.Clear();
 		visitedWalls.Add(startPos);
 		yield return StartCoroutine(RecursivePath(startPos[0], startPos[1]));
 	}
@@ -103,18 +115,19 @@ public class MazeController : MonoBehaviour {
 			nextMove = ChooseNextNeighbor();
 			GetWallByPos(movement).Prefab.GetComponent<WallListener>().isActive = false;
 
-			foreach (GameObject obj in debugInstatiate) {
-				Destroy(obj.gameObject);
-			}
-			debugInstatiate.Clear();
-			foreach(int[] nei in posibleNeighbors) {
-				GameObject neighbor = Instantiate(wallPrefabs.First().Prefab, new Vector3(transform.position.x + nei[1], transform.position.y + 0.5f, transform.position.z + nei[0]), Quaternion.identity);
-				debugInstatiate.Add(neighbor);
-			}
+		//	foreach (GameObject obj in debugInstatiate) {
+		//		Destroy(obj.gameObject);
+		//	}
+		//	debugInstatiate.Clear();
+		//	foreach(int[] nei in posibleNeighbors) {
+		//		GameObject neighbor = Instantiate(wallPrefabs.First().Prefab, new Vector3(transform.position.x + nei[1], 
+		// 																			transform.position.y + 0.5f, transform.position.z + nei[0]), Quaternion.identity);
+		//		debugInstatiate.Add(neighbor);
+		//	}
 		}
-		foreach (GameObject obj in debugInstatiate) {
-			Destroy(obj.gameObject);
-		}
+		//foreach (GameObject obj in debugInstatiate) {
+		//	Destroy(obj.gameObject);
+		//}
 		yield return new WaitForSeconds(stepTime);
 	}
 
@@ -167,19 +180,32 @@ public class MazeController : MonoBehaviour {
 
 	public int[] ChoosePath(int row, int col) {
 		List<int[]> neighbors = new List<int[]>();
+		// debugInstatiate.Add(Instantiate(wallPrefabs[0].Prefab, transform.position + new Vector3(wallSize.x * col, 15, wallSize.z * row), Quaternion.identity));
 
-		if (row + 2 > 0 && row + 2 < mazeSize[0]) // up
-			if (IsInList(visitedWalls, new int[] { row + 2, col }))
+		if (row + 2 > 0 && row + 2 < mazeSize[0]) {// up
+			if (IsInList(visitedWalls, new int[] { row + 2, col })) {
+				GetWallByPos(row + 1, col).Prefab.GetComponent<WallListener>().isActive = true;
 				neighbors.Add(new int[] { row + 2, col });
-		if (row - 2 > 0 && row - 2 < mazeSize[0]) // down
-			if (IsInList(visitedWalls, new int[] { row - 2, col }))
+			}
+		}
+		if (row - 2 > 0 && row - 2 < mazeSize[0]) { // down
+			if (IsInList(visitedWalls, new int[] { row - 2, col })) {
+				GetWallByPos(row - 1, col).Prefab.GetComponent<WallListener>().isActive = true;
 				neighbors.Add(new int[] { row - 2, col });
-		if (col + 2 > 0 && col + 2 < mazeSize[1]) // right
-			if (IsInList(visitedWalls, new int[] { row, col + 2 }))
+			}
+		}
+		if (col + 2 > 0 && col + 2 < mazeSize[1]) { // right
+			if (IsInList(visitedWalls, new int[] { row, col + 2 })) {
+				GetWallByPos(row, col + 1).Prefab.GetComponent<WallListener>().isActive = true;
 				neighbors.Add(new int[] { row, col + 2 });
-		if (col - 2 > 0 && col - 2 < mazeSize[1]) // left
-			if (IsInList(visitedWalls, new int[] { row, col - 2 }))
+			}
+		}
+		if (col - 2 > 0 && col - 2 < mazeSize[1]) { // left
+			if (IsInList(visitedWalls, new int[] { row, col - 2 })) {
+				GetWallByPos(row, col - 1).Prefab.GetComponent<WallListener>().isActive = true;
 				neighbors.Add(new int[] { row, col - 2 });
+			}
+		}
 
 		if (neighbors.Count != 0) {
 			int[] move = neighbors[Random.Range(0, neighbors.Count)];
@@ -197,24 +223,26 @@ public class MazeController : MonoBehaviour {
 		return new int[0];
 	}
 
-	static bool IsInList(List<int[]> list, int[] arr) {
+	public static bool IsInList(List<int[]> list, int[] arr) {
 		return list.FindIndex(l => l.SequenceEqual(arr)) == -1;
 	}
 
-	GameObject GetRandomWall() {
-		int totalSum = 0;
-		foreach(WallPrefab obj in wallPrefabs) {
-			totalSum += obj.Weight;
-		}
+	GameObject GetNewRandomWall(bool exit) {
+		if (!exit) {
+			int totalSum = 0;
+			foreach (WallPrefab obj in wallPrefabs) {
+				totalSum += obj.Weight;
+			}
 
-		int guess = Random.Range(0, totalSum - 1);
-		totalSum = 0;
-		foreach(WallPrefab obj in wallPrefabs) {
-			totalSum += obj.Weight;
-			if (guess < totalSum)
-				return obj.Prefab;
+			int guess = Random.Range(0, totalSum - 1);
+			totalSum = 0;
+			foreach (WallPrefab obj in wallPrefabs) {
+				totalSum += obj.Weight;
+				if (guess < totalSum)
+					return obj.Prefab;
+			}
 		}
-		return null;
+		return exitPrefab;
 	}
 
 	MazeWall GetWallByPos(int[] pos) {
@@ -222,7 +250,10 @@ public class MazeController : MonoBehaviour {
 	}
 
 	MazeWall GetWallByPos(int r, int c) {
-		return walls.Find(l => l.MazePosition.SequenceEqual(new int[] { r, c }));
+		string pos = r + ", " + c;
+		int indx = listPosition[pos];
+		return walls[indx];
+		// return walls.Find(l => l.MazePosition.SequenceEqual(new int[] { r, c }));
 	}
 
 }
@@ -269,6 +300,8 @@ public class PrimsMazeEditor : Editor {
 
 	public override void OnInspectorGUI() {
 		serializedObject.Update();
+		script.isActive = EditorGUILayout.Toggle("Is Active", script.isActive);
+		GUILayout.Space(5);
 		script.method = (RecursionMethod)EditorGUILayout.EnumPopup("Method", script.method);
 		GUILayout.Space(5);
 
@@ -309,12 +342,19 @@ public class PrimsMazeEditor : Editor {
 		GUILayout.Space(10);
 
 		script.wallSize = EditorGUILayout.Vector3Field("Wall Size", script.wallSize);
-		script.smoothVelocity = EditorGUILayout.Slider("Smooth Movement Factor", script.smoothVelocity, 0f, 0.7f);
+		script.smoothVelocity = EditorGUILayout.Slider("Movement Factor", script.smoothVelocity, 0f, 0.7f);
+		script.exitPrefab = EditorGUILayout.ObjectField("Exit Prefab", script.exitPrefab, typeof(GameObject), false) as GameObject;
 		prefabList.DoLayoutList();
 		GUILayout.Space(10);
 
-		script.stepTime = EditorGUILayout.Slider("Step Time", script.stepTime, 0, 100);
+		script.stepTime = EditorGUILayout.Slider("Step Time", script.stepTime, 0, 5);
 		serializedObject.ApplyModifiedProperties();
+
+		if (script.GetComponent<BoxCollider>() != null) {
+			script.GetComponent<BoxCollider>().size = new Vector3(script.wallSize.x * script.mazeSize[0], script.wallSize.y * 2, script.wallSize.z * script.mazeSize[1]);
+			script.GetComponent<BoxCollider>().center = new Vector3(script.wallSize.x * script.mazeSize[0] * 0.5f - script.wallSize.x * 0.5f, 0,
+			                                                        script.wallSize.z * script.mazeSize[1] * 0.5f - script.wallSize.z * 0.5f) + script.transform.position;
+		}
 	}
 }
 #endif
