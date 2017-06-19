@@ -11,7 +11,7 @@ public struct MazeWall {
 }
 
 public class WallListener : MonoBehaviour {
-	public MazeController controller;
+	public MazeManager controller;
 	public bool isActive = true;
 	public bool isHidden;
 	public MazeWall index;
@@ -41,12 +41,12 @@ public class WallListener : MonoBehaviour {
 			targetPosition = index.WorldPosition + Vector3.down * controller.wallSize.y * 0.5f;
 			transform.position = targetPosition;
 		}
-		InvokeRepeating("UnActive", 0, Random.value * 10);
+		InvokeRepeating("UnActive", 0, Random.value * 3);
 	}
 
 	void Update() {
 		if (controller != null) {
-			var distance = index.WorldPosition - targetPosition;
+			var distance = targetPosition - transform.position;
 			if (isActive) {
 				targetPosition = index.WorldPosition + Vector3.down * controller.wallSize.y * -0.5f;
 				if (distance.magnitude > 0.2f)
