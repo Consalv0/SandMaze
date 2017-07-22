@@ -67,6 +67,7 @@ public class MazeManager : MonoBehaviour {
 				indx++;
 				wall.Prefab.GetComponent<WallListener>().controller = this; // Assign the controller to the GameObject
 				wall.Prefab.GetComponent<WallListener>().index = wall;      // Assign the MazeWall struct for easy access of data
+				wall.Prefab.transform.parent = gameObject.transform;
 				wallList.Add(wall); // Add most important: add wall to teh list
 			}
 		}
